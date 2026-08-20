@@ -12,12 +12,17 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.database import engine
 
 from app.api.v1.documents import router as documents_router
+# Import the ask-question API routes.
+from app.api.v1.questions import router as questions_router
 
 # Create the FastAPI application.
 # The title appears in the automatic API documentation at /docs.
 app = FastAPI(title="Agentic RAG API")
 
 app.include_router(documents_router)
+
+# Register the ask-question routes with the FastAPI application.
+app.include_router(questions_router)
 # Create a GET endpoint.
 # When someone visits /api/v1/health, FastAPI runs health_check().
 @app.get("/api/v1/health")
