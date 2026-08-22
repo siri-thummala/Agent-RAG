@@ -22,3 +22,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Uploaded PDFs are local user data and must not be committed.
+backend/uploads/

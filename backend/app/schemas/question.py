@@ -1,5 +1,8 @@
-# UUID identifies a specific uploaded document.
+# UUID identifies documents and conversation threads.
 import uuid
+
+# Literal restricts route values to three allowed choices.
+from typing import Literal
 
 # Pydantic defines and validates API request/response data.
 from pydantic import BaseModel, Field, field_validator
@@ -10,7 +13,6 @@ class QuestionRequest(BaseModel):
     Data sent by the user when asking a question.
     """
 
-    # The question must contain between 3 and 2,000 characters.
     question: str = Field(
         min_length=3,
         max_length=2000,
@@ -18,13 +20,15 @@ class QuestionRequest(BaseModel):
     )
 
     # If supplied, search only inside this document.
-    # If omitted, search across all uploaded documents.
     document_id: uuid.UUID | None = None
+
+    # Send an existing ID to continue a conversation.
+    # Send null to begin a new conversation.
+    conversation_id: uuid.UUID | None = None
 
     @field_validator("question")
     @classmethod
     def clean_question(cls, value: str) -> str:
-        # Remove unnecessary spaces before and after the question.
         cleaned_question = value.strip()
 
         if not cleaned_question:
@@ -35,7 +39,7 @@ class QuestionRequest(BaseModel):
 
 class SourceResponse(BaseModel):
     """
-    One PDF chunk used as a source for the answer.
+    One PDF chunk used as a source.
     """
 
     document_id: uuid.UUID
@@ -46,10 +50,32 @@ class SourceResponse(BaseModel):
     text: str
 
 
-class QuestionResponse(BaseModel):
+class WebSourceResponse(BaseModel):
     """
-    Final answer returned by the RAG endpoint.
+    One live web-search result used as a source.
     """
 
+    title: str
+    url: str
+    snippet: str
+
+
+class QuestionResponse(BaseModel):
+    """
+    Final response returned by the LangGraph RAG endpoint.
+    """
+
+    # ID used to continue this conversation later.
+    conversation_id: uuid.UUID
+
+    # Gemini-generated response.
     answer: str
+
+    # Branch selected by LangGraph.
+    route: Literal["document", "web", "both"]
+
+    # PDF chunks retrieved from Qdrant.
     sources: list[SourceResponse]
+
+    # Results retrieved from live web search.
+    web_sources: list[WebSourceResponse]

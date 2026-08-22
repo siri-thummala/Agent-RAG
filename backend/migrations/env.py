@@ -10,6 +10,10 @@ from dotenv import load_dotenv
 
 from app.database import Base
 from app.models.document import Document
+
+# Import QueryLog so Alembic can detect the query_logs table.
+from app.models.query_log import QueryLog
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

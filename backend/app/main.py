@@ -15,6 +15,12 @@ from app.api.v1.documents import router as documents_router
 # Import the ask-question API routes.
 from app.api.v1.questions import router as questions_router
 
+# Import analytics dashboard API routes.
+from app.api.v1.analytics import router as analytics_router
+
+# Import the retrieval-evaluation API route.
+from app.api.v1.evaluation import router as evaluation_router
+
 # Allows the React frontend to call this backend from another port.
 from fastapi.middleware.cors import CORSMiddleware
 # Create the FastAPI application.
@@ -38,6 +44,10 @@ app.include_router(documents_router)
 
 # Register the ask-question routes with the FastAPI application.
 app.include_router(questions_router)
+# Register analytics routes with FastAPI.
+app.include_router(analytics_router)
+# Make the evaluation endpoint available through FastAPI.
+app.include_router(evaluation_router)
 # Create a GET endpoint.
 # When someone visits /api/v1/health, FastAPI runs health_check().
 @app.get("/api/v1/health")
