@@ -25,31 +25,56 @@ QDRANT_URL = os.getenv(
     "QDRANT_URL",
     "http://localhost:6333",
 )
+# Qdrant Cloud requires an API key.
+# Local Qdrant does not need one, so the value can remain None locally.
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
 # All PDF chunks will be stored in this Qdrant collection.
 QDRANT_COLLECTION_NAME = "document_chunks"
 
 
 # Create one reusable connection to Qdrant.
-qdrant_client = QdrantClient(url=QDRANT_URL)
+# Connect locally without a key or connect securely to Qdrant Cloud
+# when QDRANT_URL and QDRANT_API_KEY are provided during deployment.
+qdrant_client = QdrantClient(
+    url=QDRANT_URL,
+    api_key=QDRANT_API_KEY,
+)
 
 
 def ensure_collection_exists() -> None:
     """
-    Create the Qdrant collection if it does not already exist.
+    Create the Qdrant collection and its document filter index
+    if they do not already exist.
     """
 
-    # Do nothing when the collection already exists.
-    if qdrant_client.collection_exists(QDRANT_COLLECTION_NAME):
+    # Do nothing when the collection and its index
+    # have already been created.
+    if qdrant_client.collection_exists(
+        QDRANT_COLLECTION_NAME
+    ):
         return
 
-    # Create a collection configured for our 384-number embeddings.
+    # Create a collection configured for the 384-number
+    # vectors produced by our FastEmbed model.
     qdrant_client.create_collection(
         collection_name=QDRANT_COLLECTION_NAME,
         vectors_config=models.VectorParams(
             size=EMBEDDING_VECTOR_SIZE,
             distance=models.Distance.COSINE,
         ),
+    )
+
+    # Create an index for document_id.
+    #
+    # This lets Qdrant efficiently:
+    # 1. search within one selected PDF;
+    # 2. delete all chunks belonging to one PDF.
+    qdrant_client.create_payload_index(
+        collection_name=QDRANT_COLLECTION_NAME,
+        field_name="document_id",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+        wait=True,
     )
 
 

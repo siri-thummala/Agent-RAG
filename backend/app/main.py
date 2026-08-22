@@ -1,85 +1,99 @@
-# Import FastAPI to create the backend application.
-# Import HTTPException to return a proper API error response when needed.
+# `os` reads deployment settings from environment variables.
+import os
+
+# FastAPI creates the backend application and API errors.
 from fastapi import FastAPI, HTTPException
 
-# Import `text` so SQLAlchemy can run a small SQL query: SELECT 1.
-from sqlalchemy import text
+# Allows the React frontend to call FastAPI from another domain.
+from fastapi.middleware.cors import CORSMiddleware
 
-# Import the type of error that SQLAlchemy raises for database issues.
+# Load local development settings from backend/.env.
+from dotenv import load_dotenv
+
+# SQLAlchemy tools used by the health check.
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-# Import the PostgreSQL connection engine created in database.py.
+# PostgreSQL connection engine.
 from app.database import engine
 
+# Import all API routers.
 from app.api.v1.documents import router as documents_router
-# Import the ask-question API routes.
 from app.api.v1.questions import router as questions_router
-
-# Import analytics dashboard API routes.
 from app.api.v1.analytics import router as analytics_router
-
-# Import the retrieval-evaluation API route.
 from app.api.v1.evaluation import router as evaluation_router
 
-# Allows the React frontend to call this backend from another port.
-from fastapi.middleware.cors import CORSMiddleware
+
+# Load variables from .env during local development.
+# During deployment, Render provides these variables directly.
+load_dotenv()
+
+
 # Create the FastAPI application.
-# The title appears in the automatic API documentation at /docs.
+# The title appears in the automatic documentation at /docs.
 app = FastAPI(title="Agentic RAG API")
 
-# The React frontend runs on port 5173, while FastAPI runs on port 8000.
-# CORS permission is therefore required for browser API requests.
+
+# These addresses are allowed during local React development.
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+
+# During deployment, FRONTEND_URL will contain the public
+# address of the deployed React website.
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+if FRONTEND_URL:
+    # Remove a final slash so it matches the browser origin correctly.
+    allowed_origins.append(
+        FRONTEND_URL.rstrip("/")
+    )
+
+
+# Give the approved React frontend permission to call FastAPI.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
+# Register the document upload, list, read and delete routes.
 app.include_router(documents_router)
 
-# Register the ask-question routes with the FastAPI application.
+# Register the agentic ask-question route.
 app.include_router(questions_router)
-# Register analytics routes with FastAPI.
+
+# Register analytics dashboard routes.
 app.include_router(analytics_router)
-# Make the evaluation endpoint available through FastAPI.
+
+# Register retrieval-evaluation routes.
 app.include_router(evaluation_router)
-# Create a GET endpoint.
-# When someone visits /api/v1/health, FastAPI runs health_check().
+
+
+# Health endpoint used to confirm FastAPI and PostgreSQL are working.
 @app.get("/api/v1/health")
 def health_check():
-
-    # `try` means: attempt the database connection/test.
     try:
-
-        # Open a temporary connection to PostgreSQL.
-        # `with` automatically closes the connection when this block is finished.
+        # Open a temporary PostgreSQL connection.
         with engine.connect() as connection:
-
-            # Run a tiny test SQL query.
-            # `SELECT 1` does not read or change real data.
-            # It only confirms that PostgreSQL is reachable and working.
+            # A tiny query confirms that the database is reachable.
             connection.execute(text("SELECT 1"))
 
-    # If PostgreSQL is stopped, unreachable, or has incorrect login details,
-    # SQLAlchemy raises an error and Python enters this block.
     except SQLAlchemyError:
-
-        # Send a JSON error response to the browser/frontend.
-        # HTTP status 503 means: service is temporarily unavailable.
+        # HTTP 503 means the database service is unavailable.
         raise HTTPException(
             status_code=503,
             detail="Database is unavailable",
         )
 
-    # This runs only when the database connection and SELECT 1 test succeed.
-    # FastAPI automatically converts this dictionary into JSON.
+    # Returned when both FastAPI and PostgreSQL are working.
     return {
-        "status": "ok",                 # FastAPI is working.
-        "service": "agentic-rag-api",   # Name of this backend service.
-        "database": "connected",        # PostgreSQL connection succeeded.
+        "status": "ok",
+        "service": "agentic-rag-api",
+        "database": "connected",
     }
